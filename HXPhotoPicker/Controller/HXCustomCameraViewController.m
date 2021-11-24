@@ -19,6 +19,7 @@
 #import "HX_PhotoEditViewController.h"
 #import "HXCustomNavigationController.h"
 #import <CoreLocation/CoreLocation.h>
+#import "HXAssetManager.h"
 
 @interface HXCustomCameraViewController ()
 <HXCustomPreviewViewDelegate ,
@@ -473,6 +474,85 @@ CLLocationManagerDelegate
     }
 }
 - (void)doneCompleteWithModel:(HXPhotoModel *)model {
+    [model requestAVAssetStartRequestICloud:^(PHImageRequestID iCloudRequestId, HXPhotoModel * _Nullable model) {
+        
+    } progressHandler:nil success:^(AVAsset * _Nullable avAsset, AVAudioMix * _Nullable audioMix, HXPhotoModel * _Nullable model, NSDictionary * _Nullable info) {
+        AVAssetExportSession *session = [[AVAssetExportSession alloc] initWithAsset:avAsset presetName:AVAssetExportPreset960x540];
+        NSString *fileName = [[NSString hx_fileName] stringByAppendingString:@".mp4"];
+        NSString *fullPathToFile = [NSTemporaryDirectory() stringByAppendingPathComponent:fileName];
+        NSURL *videoURL = [NSURL fileURLWithPath:fullPathToFile];
+        session.outputURL = videoURL;
+        session.shouldOptimizeForNetworkUse = YES;
+
+        NSArray *supportedTypeArray = session.supportedFileTypes;
+        if ([supportedTypeArray containsObject:AVFileTypeMPEG4]) {
+            session.outputFileType = AVFileTypeMPEG4;
+        } else if (supportedTypeArray.count == 0) {
+            if (HXShowLog) NSSLog(@"不支持导入该类型视频");
+            return;
+        }else {
+            session.outputFileType = [supportedTypeArray objectAtIndex:0];
+        }
+        [session exportAsynchronouslyWithCompletionHandler:^{
+            dispatch_async(dispatch_get_main_queue(), ^{
+                if ([session status] == AVAssetExportSessionStatusCompleted) {
+                    model.videoURL = videoURL;
+                    [self finishCreationWithModel:model];
+                }else if ([session status] == AVAssetExportSessionStatusFailed){
+                    [self getVideoURLWithModel:model success:^(NSURL * _Nullable URL, HXPhotoModelMediaSubType mediaType, BOOL isNetwork, HXPhotoModel * _Nullable model) {
+                        model.videoURL = URL;
+                        if (HXShowLog) NSSLog(@"视频导出完成");
+                        [self finishCreationWithModel:model];
+                    } failed:^(NSDictionary * _Nullable info, HXPhotoModel * _Nullable model) {
+
+                        if (HXShowLog) NSSLog(@"视频导出失败");
+                    }];
+                }else if ([session status] == AVAssetExportSessionStatusCancelled) {
+                    if (HXShowLog) NSSLog(@"视频导出被取消");
+                }
+            });
+        }];
+    } failed:^(NSDictionary * _Nullable info, HXPhotoModel * _Nullable model) {
+        
+    }];
+}
+
+- (void)getVideoURLWithModel:(HXPhotoModel *)model
+                     success:(HXModelURLHandler _Nullable)success
+                      failed:(HXModelFailedBlock _Nullable)failed {
+    if (model.subType == HXPhotoModelMediaSubTypeVideo) {
+        if (model.type == HXPhotoModelMediaTypeCameraVideo) {
+            if (model.cameraVideoType == HXPhotoModelMediaTypeCameraVideoTypeLocal) {
+                if (success) {
+                    success(model.videoURL, HXPhotoModelMediaSubTypeVideo, NO, model);
+                }
+            }else if (model.cameraVideoType == HXPhotoModelMediaTypeCameraVideoTypeNetWork) {
+                if (success) {
+                    success(model.videoURL, HXPhotoModelMediaSubTypeVideo, YES, model);
+                }
+            }
+        }else {
+            [HXAssetManager requestVideoURL:model.asset completion:^(NSURL * _Nullable videoURL) {
+                __strong typeof(model) strongModel = model;
+                if (videoURL) {
+                    if (success) {
+                        success(videoURL, HXPhotoModelMediaSubTypeVideo, NO, strongModel);
+                    }
+                }else {
+                    if (failed) {
+                        failed(nil, strongModel);
+                    }
+                }
+            }];
+        }
+    }else {
+        if (failed) {
+            failed(nil, model);
+        }
+    }
+}
+
+- (void)finishCreationWithModel:(HXPhotoModel *)model {
     [[HXPhotoCommon photoCommon] saveCamerImage];
     [self stopTimer];
     [self.cameraController stopMontionUpdate];
@@ -500,6 +580,7 @@ CLLocationManagerDelegate
         }];
     }
 }
+
 - (void)resetCameraZoom {
     self.previewView.maxScale = [self.cameraController maxZoomFactor];
     if ([self.cameraController cameraSupportsZoom]) {

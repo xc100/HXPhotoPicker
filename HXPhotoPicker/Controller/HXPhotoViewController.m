@@ -1872,7 +1872,7 @@ HX_PhotoEditViewControllerDelegate
         __block NSInteger videoIndex = 0;
         BOOL endOriginal = self.manager.configuration.exportVideoURLForHighestQuality ? requestOriginal : NO;
         for (HXPhotoModel *pm in videoArray) {
-            [pm exportVideoWithPresetName:endOriginal ? AVAssetExportPresetHighestQuality : AVAssetExportPresetMediumQuality startRequestICloud:nil iCloudProgressHandler:nil exportProgressHandler:nil success:^(NSURL * _Nullable videoURL, HXPhotoModel * _Nullable model) {
+            [pm exportVideoWithPresetName:endOriginal ? AVAssetExportPresetHighestQuality : AVAssetExportPreset960x540 startRequestICloud:nil iCloudProgressHandler:nil exportProgressHandler:nil success:^(NSURL * _Nullable videoURL, HXPhotoModel * _Nullable model) {
                 if (!weakSelf) {
                     return;
                 }
