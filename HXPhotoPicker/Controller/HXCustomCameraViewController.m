@@ -420,7 +420,7 @@ CLLocationManagerDelegate
                 [self doneCompleteWithModel:cameraModel];
             }
         }else if (cameraModel.subType == HXPhotoModelMediaSubTypeVideo) {
-            [self doneCompleteWithModel:cameraModel];
+            [self doneCompleteHandleVideoWithModel:cameraModel];
         }
     }else {
         if (self.manager.configuration.editAssetSaveSystemAblum) {
@@ -435,7 +435,7 @@ CLLocationManagerDelegate
                     [self doneCompleteWithModel:cameraModel];
                 }
             }else if (cameraModel.subType == HXPhotoModelMediaSubTypeVideo) {
-                [self doneCompleteWithModel:cameraModel];
+                [self doneCompleteHandleVideoWithModel:cameraModel];
             }
         }else {
             [self.view hx_immediatelyShowLoadingHudWithText:nil];
@@ -463,7 +463,7 @@ CLLocationManagerDelegate
                         [weakSelf.view hx_handleLoading:NO];
                         if (success) {
                             model.videoURL = weakSelf.videoURL;
-                            [weakSelf doneCompleteWithModel:model];
+                            [weakSelf doneCompleteHandleVideoWithModel:model];
                         }else {
                             [weakSelf.view hx_showImageHUDText:@"保存失败!"];
                         }
@@ -473,7 +473,8 @@ CLLocationManagerDelegate
         }
     }
 }
-- (void)doneCompleteWithModel:(HXPhotoModel *)model {
+
+- (void)doneCompleteHandleVideoWithModel:(HXPhotoModel *)model {
     [model requestAVAssetStartRequestICloud:^(PHImageRequestID iCloudRequestId, HXPhotoModel * _Nullable model) {
         
     } progressHandler:nil success:^(AVAsset * _Nullable avAsset, AVAudioMix * _Nullable audioMix, HXPhotoModel * _Nullable model, NSDictionary * _Nullable info) {
@@ -497,12 +498,12 @@ CLLocationManagerDelegate
             dispatch_async(dispatch_get_main_queue(), ^{
                 if ([session status] == AVAssetExportSessionStatusCompleted) {
                     model.videoURL = videoURL;
-                    [self finishCreationWithModel:model];
+                    [self doneCompleteWithModel:model];
                 }else if ([session status] == AVAssetExportSessionStatusFailed){
                     [self getVideoURLWithModel:model success:^(NSURL * _Nullable URL, HXPhotoModelMediaSubType mediaType, BOOL isNetwork, HXPhotoModel * _Nullable model) {
                         model.videoURL = URL;
                         if (HXShowLog) NSSLog(@"视频导出完成");
-                        [self finishCreationWithModel:model];
+                        [self doneCompleteWithModel:model];
                     } failed:^(NSDictionary * _Nullable info, HXPhotoModel * _Nullable model) {
 
                         if (HXShowLog) NSSLog(@"视频导出失败");
@@ -552,7 +553,7 @@ CLLocationManagerDelegate
     }
 }
 
-- (void)finishCreationWithModel:(HXPhotoModel *)model {
+- (void)doneCompleteWithModel:(HXPhotoModel *)model {
     [[HXPhotoCommon photoCommon] saveCamerImage];
     [self stopTimer];
     [self.cameraController stopMontionUpdate];
